@@ -1,0 +1,8 @@
+browser_data/
+data/
+current_account.txt
+results.json
+contas.csv
+__pycache__/
+*.pyc
+.venv/
