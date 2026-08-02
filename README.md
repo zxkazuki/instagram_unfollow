@@ -1,68 +1,90 @@
 # Instagram Unfollow Automation
 
-Script Playwright que identifica contas que não te seguem de volta e faz unfollow automático com delays aleatórios.
+Script que identifica contas que não te seguem de volta no Instagram e faz unfollow automático com delays aleatórios para evitar banimento.
 
-## Instalação
+## Setup (PC novo)
+
+### 1. Instalar Python 3.11+
+
+Baixe em https://www.python.org/downloads/ e instale marcando **"Add to PATH"**.
+
+### 2. Instalar dependências
 
 ```bash
+pip install playwright
+python -m playwright install firefox
+```
+
+### 3. Clonar/copiar o projeto
+
+```bash
+cd pasta-onde-quer
+git clone <url-do-repo>
 cd instagram-unfollow
-pip install -r requirements.txt
-playwright install firefox
 ```
 
-## Uso
+### 4. Primeiro uso — fazer login
 
 ```bash
-# 1. Primeiro uso — faz login manual e salva a sessão
-python unfollow.py login
-
-# 2. Coleta seguidores/seguindo e salva em data/{username}_results.json + data/{username}_contas.csv
-python unfollow.py collect
-# ou via módulo separado:
-python get_followers.py
-
-# 3. Executa unfollows a partir do results da conta ativa
-python unfollow.py
+python main.py login
 ```
 
-## Fluxo
+O Firefox vai abrir. Faça login no Instagram manualmente, depois volte ao terminal e digite `ok`.
 
-1. **Login (uma vez):** `python unfollow.py login` abre o Chromium, você faz login manual, e digita `ok` no terminal para salvar a sessão
-2. **Troca de conta:** ao iniciar, o script verifica qual conta está em `current_account.txt`. Se quiser trocar, ele abre o browser para novo login e salva a nova conta
-3. **Coleta:** `python unfollow.py collect` pede seu username, coleta **seguindo** e **seguidores**, compara e salva em `data/{username}_results.json` + `data/{username}_contas.csv`
-4. **Unfollow:** `python unfollow.py` lê o results do username ativo, mostra quantas contas não seguem de volta, pede confirmação e executa unfollows
-5. Após cada sessão, o results é atualizado removendo as contas já unfollowed
-6. Rode `python unfollow.py` novamente para continuar de onde parou (idempotente)
-7. **Multi-conta:** cada conta tem seus próprios arquivos de dados — trocar de conta não apaga dados anteriores
+### 5. Pronto — agora pode usar
 
-## Estrutura
+```bash
+python main.py
+```
 
-| Arquivo | Responsabilidade |
-|---------|-----------------|
-| `unfollow.py` | Script original monolítico (login + coleta + unfollow) |
-| `shared.py` | Funções utilitárias compartilhadas (browser, login, scroll, coleta, troca de conta) |
-| `get_followers.py` | Módulo isolado de coleta (importável ou executável direto) |
+## Comandos
 
-## Arquivos de Saída
+| Comando | O que faz |
+|---------|-----------|
+| `python main.py` | Menu interativo |
+| `python main.py login` | Salvar sessão de login no browser |
+| `python main.py collect` | Coletar seguidores e seguindo |
+| `python main.py unfollow` | Executar unfollows (usa dados coletados) |
+| `python main.py all` | Coletar + Unfollow (pipeline completo) |
 
-Os dados são armazenados por conta na pasta `data/`:
+## Fluxo de uso diário
 
-| Arquivo | Conteúdo |
-|---------|----------|
-| `current_account.txt` | Username da conta ativa |
-| `data/{username}_results.json` | Listas completas (following, followers, mutual, not_following_back) |
-| `data/{username}_contas.csv` | Todas as contas com coluna `relacao`: `mutuo`, `nao_segue_de_volta`, ou `apenas_seguidor` |
+```
+python main.py        → confirma conta → escolhe "unfollow" → confirma → deixa rodar
+```
+
+No dia seguinte, roda de novo. O script continua de onde parou (atualiza o JSON removendo quem já foi unfollowed).
+
+## Trocar de conta
+
+Ao rodar `python main.py`, o script pergunta:
+
+```
+👤 Conta atual: @igor_kazuki
+   >>> Continuar com essa conta? (s/n):
+```
+
+Digita `n` → faz logout/login no browser com a nova conta → informa o username.  
+Os dados da conta anterior ficam salvos em `data/` e não são perdidos.
+
+## Estrutura de dados
+
+```
+data/
+├── igor_kazuki_results.json    # Seguidores, seguindo, análise
+├── igor_kazuki_contas.csv      # CSV com todas as contas e relação
+├── kahinokuma_results.json     # Outra conta
+└── kahinokuma_contas.csv
+```
 
 ## Segurança
 
-- **Login separado** — rode `python unfollow.py login` uma vez para salvar a sessão
-- **Troca de conta** — cada conta tem seus dados isolados em `data/`; trocar não apaga nada
-- **Credenciais nunca são digitadas pelo script** — login é 100% manual no navegador
-- **Smart delay em duas fases** — primeiros 30 unfollows com delay curto (3-7s), depois delay longo (30-90s)
-- **Limite por sessão** — entre 55-80 unfollows aleatórios (configurável no código)
-- **100% local** — nenhum dado sai da sua máquina
-- **Sessão persistente** — pasta `browser_data/` mantém o login entre execuções
-- **Anti-detecção** — usa Firefox (sem flags de automação expostas, fingerprint mais limpo que Chromium)
+- **Login manual** — credenciais nunca são digitadas pelo script
+- **Firefox** — menos detecção de automação que Chromium
+- **Delays aleatórios** — 3-7s nos primeiros 30, depois 30-90s
+- **Limite aleatório por sessão** — entre 55 e 80 unfollows
+- **100% local** — nenhum dado sai da máquina
+- **Sessão persistente** — `browser_data/` mantém login entre execuções
 
 ## Configuração
 
@@ -72,6 +94,15 @@ Edite as constantes no topo de `unfollow.py`:
 |----------|--------|-----------|
 | `MAX_UNFOLLOWS_RANGE` | (55, 80) | Limite aleatório de unfollows por sessão |
 | `FAST_PHASE_LIMIT` | 30 | Quantidade de unfollows na fase rápida |
-| `FAST_DELAY` | (3, 7) | Intervalo de delay em segundos na fase rápida |
-| `SLOW_DELAY` | (30, 90) | Intervalo de delay em segundos na fase lenta |
-| `SCROLL_PAUSE_SECONDS` | 2.0 | Pausa entre scrolls na coleta de listas |
+| `FAST_DELAY` | (3, 7) | Intervalo em segundos na fase rápida |
+| `SLOW_DELAY` | (30, 90) | Intervalo em segundos na fase lenta |
+
+## Troubleshooting
+
+| Problema | Solução |
+|----------|---------|
+| `ModuleNotFoundError: playwright` | Rode `pip install playwright` |
+| Browser não abre | Rode `python -m playwright install firefox` |
+| reCAPTCHA / tela em branco | Delete `browser_data/` e rode `python main.py login` de novo |
+| Instagram bloqueou ações | Espere 24-48h e reduza `MAX_UNFOLLOWS_RANGE` |
+| Scroll não funciona no modal | Feche o script, delete `browser_data/`, rode login de novo |
